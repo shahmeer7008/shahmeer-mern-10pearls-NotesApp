@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export function SignupPage() {
   const { signUp } = useAuth();
@@ -51,72 +52,96 @@ export function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <div className="flex justify-center mb-6">
-            <div className="bg-green-600 p-3 rounded-lg">
-              <UserPlus className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4 py-12">
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+        className="w-full max-w-5xl overflow-hidden rounded-[32px] border border-white/10 bg-white/5 shadow-2xl backdrop-blur-xl"
+      >
+        <div className="grid gap-0 md:grid-cols-[1.1fr_1fr]">
+          <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-emerald-900 to-emerald-700 p-10 text-white">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(52,211,153,0.18),_transparent_50%)]" />
+            <div className="relative space-y-6">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-3xl bg-white/10 text-emerald-200 shadow-lg shadow-emerald-500/10">
+                <UserPlus className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-semibold tracking-tight">Create your account.</h1>
+                <p className="mt-3 max-w-sm text-slate-300 leading-7">
+                  Start a premium note-taking experience with real-time sync, modern design, and intuitive workflows.
+                </p>
+              </div>
+              <div className="grid gap-3">
+                <div className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/10 backdrop-blur-xl">
+                  <p className="text-sm text-slate-300">Ready in seconds</p>
+                  <p className="mt-2 font-semibold text-white">Fast signup and secure authentication</p>
+                </div>
+                <div className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/10 backdrop-blur-xl">
+                  <p className="text-sm text-slate-300">Beautiful editor</p>
+                  <p className="mt-2 font-semibold text-white">Create notes with rich formatting</p>
+                </div>
+              </div>
             </div>
           </div>
+          <div className="bg-white p-10 sm:p-12">
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-3xl font-semibold text-slate-900">Sign up</h2>
+                <p className="mt-2 text-sm text-slate-500">Create an account and start organizing your thoughts.</p>
+              </div>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                    placeholder="you@example.com"
+                  />
+                </div>
 
-          <h1 className="text-3xl font-bold text-center text-gray-900 mb-2">Create Account</h1>
-          <p className="text-center text-gray-600 mb-8">Start taking notes today</p>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                    placeholder="••••••••"
+                  />
+                </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="your@email.com"
-              />
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                    placeholder="••••••••"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex w-full items-center justify-center rounded-3xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {loading ? 'Creating account...' : 'Create account'}
+                </button>
+              </form>
+              <div className="text-center text-sm text-slate-500">
+                Already have an account?{' '}
+                <button onClick={() => navigate('/login')} className="font-semibold text-emerald-600 hover:text-emerald-700">
+                  Sign in
+                </button>
+              </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors disabled:bg-gray-400"
-            >
-              {loading ? 'Creating account...' : 'Sign Up'}
-            </button>
-          </form>
-
-          <p className="text-center text-gray-600 mt-6">
-            Already have an account?{' '}
-            <button
-              onClick={() => navigate('/login')}
-              className="text-green-600 hover:text-green-700 font-medium"
-            >
-              Sign in
-            </button>
-          </p>
+          </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -70,7 +71,6 @@ export function EditorPage() {
 
     try {
       const token = session?.token;
-
       if (!token) {
         throw new Error('Authentication token is missing');
       }
@@ -92,10 +92,7 @@ export function EditorPage() {
         throw new Error(errorBody?.error?.message || 'Failed to save note');
       }
 
-      addToast(
-        id ? 'Note updated successfully' : 'Note created successfully',
-        'success'
-      );
+      addToast(id ? 'Note updated successfully' : 'Note created successfully', 'success');
       navigate('/dashboard');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to save note';
@@ -105,63 +102,79 @@ export function EditorPage() {
     }
   };
 
-
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-500">Loading note...</div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
+        <div className="rounded-3xl border border-white/10 bg-slate-900/90 px-8 py-6 text-slate-300 shadow-xl shadow-slate-950/40">
+          Loading note...
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <nav className="bg-white shadow">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {id ? 'Edit Note' : 'New Note'}
-          </h1>
-          <div className="flex gap-3">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-900 px-4 py-2 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5" />
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:bg-gray-400"
-            >
-              <Save className="w-5 h-5" />
-              {saving ? 'Saving...' : 'Save'}
-            </button>
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: -18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="rounded-[32px] border border-white/10 bg-slate-900/90 p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.3em] text-sky-300">Editor</p>
+              <h1 className="mt-3 text-3xl font-semibold text-white">{id ? 'Edit note' : 'New note'}</h1>
+              <p className="mt-2 max-w-xl text-slate-400">
+                Write with confidence in a clean, distraction-free editor with fast save and beautiful styling.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/80 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-900"
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-700"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? 'Saving...' : 'Save note'}
+              </button>
+            </div>
           </div>
-        </div>
-      </nav>
+        </motion.div>
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8">
-        <div className="bg-white rounded-lg shadow">
-          <div className="border-b border-gray-200 p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="rounded-[32px] border border-white/10 bg-slate-900/90 shadow-2xl shadow-slate-950/40 backdrop-blur-xl"
+        >
+          <div className="border-b border-white/10 p-6">
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Note title..."
-              className="w-full text-3xl font-bold text-gray-900 focus:outline-none"
+              className="w-full rounded-3xl border border-white/10 bg-slate-950/80 px-5 py-4 text-3xl font-semibold text-white outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-500/10"
             />
           </div>
-
-          <div className="p-4">
-            <RichTextEditor 
+          <div className="min-h-[60vh] p-6">
+            <RichTextEditor
               content={content}
               onChange={setContent}
-              placeholder="Start typing your note..."
+              placeholder="Write your idea, meeting notes, or plan here..."
             />
           </div>
-        </div>
-      </main>
+        </motion.div>
+      </div>
     </div>
   );
 }
