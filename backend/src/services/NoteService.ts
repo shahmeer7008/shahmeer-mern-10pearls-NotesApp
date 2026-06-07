@@ -216,6 +216,52 @@ export class NoteService {
     }
   }
 
+  static async importNotes(userId: string, notes: Array<{ title: string; content?: string; created_at?: string; updated_at?: string }>) {
+    if (!notes || notes.length === 0) {
+      throw new AppError('No notes provided for import', 400, 'VALIDATION_ERROR');
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const values: string[] = [];
+      const params: any[] = [userId];
+
+      notes.forEach((note, index) => {
+        const idx = index * 4;
+        values.push(
+          `($1, $${idx + 2}, $${idx + 3}, COALESCE($${idx + 4}, NOW()), COALESCE($${idx + 5}, NOW()), to_tsvector('english', $${idx + 2} || ' ' || COALESCE($${idx + 3}, '')))`,
+        );
+        params.push(note.title || '', note.content || '', note.created_at || null, note.updated_at || null);
+      });
+
+      const query = `
+        INSERT INTO notes (user_id, title, content, created_at, updated_at, search_vector)
+        VALUES ${values.join(', ')}
+        RETURNING *
+      `;
+
+      const result = await client.query(query, params);
+      await client.query('COMMIT');
+
+      logger.info({
+        type: 'NOTES_IMPORTED',
+        userId,
+        count: result.rows.length,
+      });
+
+      return result.rows;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      logger.error({ type: 'NOTES_IMPORT_ERROR', error: err, userId });
+      throw new AppError('Failed to import notes', 500, 'NOTES_IMPORT_ERROR');
+    } finally {
+      client.release();
+    }
+  }
+
   private static convertToCsv(notes: any[]): string {
     const headers = ['ID', 'Title', 'Content', 'Created At', 'Updated At'];
     const rows = notes.map(note => [

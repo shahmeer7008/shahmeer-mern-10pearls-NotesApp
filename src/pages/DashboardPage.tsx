@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import useRealtimeUpdates from '../hooks/useRealtimeUpdates';
 import { Plus, Edit2, Trash2, User, Download, Upload, Search } from 'lucide-react';
 import { exportNotesAsJSON, exportNotesAsCSV, exportNotesAsMarkdown, importNotesFromFile } from '../utils/exportImport';
 import type { Note } from '../types';
@@ -18,15 +18,25 @@ export function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'title'>('date-desc');
+  const socket = useRealtimeUpdates(session?.token || undefined);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
+    if (!socket) return;
 
-    fetchNotes();
-  }, [user, navigate]);
+    const refreshNotes = () => fetchNotes();
+
+    socket.on('note:created', refreshNotes);
+    socket.on('note:updated', refreshNotes);
+    socket.on('note:deleted', refreshNotes);
+    socket.on('note:imported', refreshNotes);
+
+    return () => {
+      socket.off('note:created', refreshNotes);
+      socket.off('note:updated', refreshNotes);
+      socket.off('note:deleted', refreshNotes);
+      socket.off('note:imported', refreshNotes);
+    };
+  }, [socket, fetchNotes]);
 
   // Filter and sort notes
   useEffect(() => {
@@ -46,67 +56,57 @@ export function DashboardPage() {
     setFilteredNotes(filtered);
   }, [notes, searchQuery, sortBy]);
 
-  const fetchNotes = async () => {
+  const fetchNotes = useCallback(async () => {
     try {
       setLoading(true);
-      const token = (session as any)?.access_token;
+      const token = session?.token;
 
-      // Try backend API first
-      if (token) {
-        const response = await fetch(`${API_URL}/api/notes`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const { data } = await response.json();
-          setNotes(data.notes || []);
-          return;
-        }
+      if (!token) {
+        throw new Error('Authentication token is missing');
       }
 
-      // Fallback to Supabase
-      const { data, error } = await supabase
-        .from('notes')
-        .select('*')
-        .order('updated_at', { ascending: false });
+      const response = await fetch(`${API_URL}/api/notes${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      if (error) throw error;
-      setNotes(data || []);
+      if (!response.ok) {
+        const errorBody = await response.json();
+        throw new Error(errorBody?.error?.message || 'Failed to load notes');
+      }
+
+      const { data } = await response.json();
+      setNotes(data.notes || []);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to load notes';
       addToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [session?.token, searchQuery, addToast]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this note?')) return;
 
     try {
-      const token = (session as any)?.access_token;
-
-      // Try backend API first
-      if (token) {
-        const response = await fetch(`${API_URL}/api/notes/${id}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          setNotes(notes.filter((n) => n.id !== id));
-          addToast('Note deleted successfully', 'success');
-          return;
-        }
+      const token = session?.token;
+      if (!token) {
+        throw new Error('Authentication token is missing');
       }
 
-      // Fallback to Supabase
-      const { error } = await supabase.from('notes').delete().eq('id', id);
-      if (error) throw error;
+      const response = await fetch(`${API_URL}/api/notes/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json();
+        throw new Error(errorBody?.error?.message || 'Failed to delete note');
+      }
+
       setNotes(notes.filter((n) => n.id !== id));
       addToast('Note deleted successfully', 'success');
     } catch (err) {
@@ -142,17 +142,35 @@ export function DashboardPage() {
 
     try {
       const importedNotes = await importNotesFromFile(file);
-      
-      // Show imported notes (in production, these would be saved to backend)
-      addToast(`Imported ${importedNotes.length} notes. Note: These are preview only.`, 'info');
-      console.log('Imported notes:', importedNotes);
+      const token = session?.token;
+
+      if (!token) {
+        throw new Error('Authentication token is missing');
+      }
+
+      const response = await fetch(`${API_URL}/api/notes/import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ notes: importedNotes }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json();
+        throw new Error(errorBody?.error?.message || 'Failed to import notes');
+      }
+
+      const { data } = await response.json();
+      setNotes((currentNotes) => [...data, ...currentNotes]);
+      addToast(`Imported ${data.length} notes successfully`, 'success');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Import failed';
       addToast(errorMsg, 'error');
+    } finally {
+      event.target.value = '';
     }
-
-    // Reset input
-    event.target.value = '';
   };
 
 

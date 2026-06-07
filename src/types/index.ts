@@ -19,4 +19,5 @@ export interface AuthSession {
     id: string;
     email?: string;
   } | null;
+  token: string | null;
 }

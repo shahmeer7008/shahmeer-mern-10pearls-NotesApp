@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
 import type { AuthSession } from '../types';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const TOKEN_KEY = 'notes_app_token';
 
 interface AuthContextType {
   session: AuthSession | null;
@@ -18,46 +20,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session ? { user: session.user } : null);
-      setLoading(false);
+    const initializeSession = async () => {
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/users/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          localStorage.removeItem(TOKEN_KEY);
+          setLoading(false);
+          return;
+        }
+
+        const { data } = await response.json();
+        setSession({ user: data, token });
+      } catch (_err) {
+        localStorage.removeItem(TOKEN_KEY);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    getSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session ? { user: session.user } : null);
-    });
-
-    return () => subscription?.unsubscribe();
+    initializeSession();
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
+    const response = await fetch(`${API_URL}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
 
-    // Create user record in users table
-    if (data.user?.id) {
-      await supabase.from('users').insert({
-        id: data.user.id,
-        email: email,
-      }).then(({ error: insertError }) => {
-        if (insertError && insertError.code !== '23505') {
-          console.error('User record creation error:', insertError);
-        }
-      });
+    const { data, error } = await response.json();
+    if (!response.ok) {
+      throw new Error(error?.message || 'Signup failed');
     }
+
+    localStorage.setItem(TOKEN_KEY, data.token);
+    setSession({ user: data.user, token: data.token });
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    const response = await fetch(`${API_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const { data, error } = await response.json();
+    if (!response.ok) {
+      throw new Error(error?.message || 'Login failed');
+    }
+
+    localStorage.setItem(TOKEN_KEY, data.token);
+    setSession({ user: data.user, token: data.token });
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    localStorage.removeItem(TOKEN_KEY);
+    setSession(null);
   };
 
   return (

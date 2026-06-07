@@ -1,61 +1,39 @@
-// Real-time Updates Hook using Socket.IO
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-let socket: Socket | null = null;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-export function useRealtimeUpdates(userId: string | undefined) {
+export function useRealtimeUpdates(token?: string) {
+  const [socket, setSocket] = useState<Socket | null>(null);
+
   useEffect(() => {
-    if (!userId) return;
+    if (!token) return;
 
-    // Initialize socket connection
-    const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-    
-    socket = io(socketUrl, {
-      auth: {
-        userId,
-      },
+    const socketClient = io(API_URL, {
+      auth: { token },
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
     });
 
-    socket.on('connect', () => {
+    socketClient.on('connect', () => {
       console.log('Connected to real-time server');
     });
 
-    socket.on('disconnect', () => {
+    socketClient.on('disconnect', () => {
       console.log('Disconnected from real-time server');
     });
 
-    return () => {
-      if (socket) {
-        socket.disconnect();
-      }
-    };
-  }, [userId]);
+    setSocket(socketClient);
 
-  return {
-    emitNoteCreated: (note: any) => {
-      if (socket) socket.emit('note:created', note);
-    },
-    emitNoteUpdated: (note: any) => {
-      if (socket) socket.emit('note:updated', note);
-    },
-    emitNoteDeleted: (noteId: string) => {
-      if (socket) socket.emit('note:deleted', noteId);
-    },
-    onNoteCreated: (callback: (note: any) => void) => {
-      if (socket) socket.on('note:created', callback);
-    },
-    onNoteUpdated: (callback: (note: any) => void) => {
-      if (socket) socket.on('note:updated', callback);
-    },
-    onNoteDeleted: (callback: (noteId: string) => void) => {
-      if (socket) socket.on('note:deleted', callback);
-    },
-  };
+    return () => {
+      socketClient.disconnect();
+      setSocket(null);
+    };
+  }, [token]);
+
+  return socket;
 }
 
 export default useRealtimeUpdates;

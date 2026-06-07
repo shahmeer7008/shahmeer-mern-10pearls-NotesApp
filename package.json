@@ -16,7 +16,6 @@
     "sonarqube": "sonar-scanner"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.57.4",
     "@tiptap/extension-bold": "^2.1.16",
     "@tiptap/extension-bullet-list": "^2.1.16",
     "@tiptap/extension-heading": "^2.1.16",
@@ -55,6 +54,7 @@
     "ts-jest": "^29.1.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
-    "vite": "^5.4.2"
+    "vite": "^5.4.2",
+    "sonar-scanner": "^3.2.0"
   }
 }

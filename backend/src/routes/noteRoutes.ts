@@ -11,6 +11,9 @@ router.use(authMiddleware);
 // Create a new note
 router.post('/', noteController.createNote);
 
+// Import notes in batch
+router.post('/import', noteController.importNotes);
+
 // Get all notes with search and pagination
 router.get('/', noteController.getNotes);
 

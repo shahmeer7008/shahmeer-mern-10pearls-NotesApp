@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate, useParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { Save, X } from 'lucide-react';
 import RichTextEditor from '../components/RichTextEditor';
 import type { Note } from '../types';
@@ -34,36 +33,25 @@ export function EditorPage() {
 
   const fetchNote = async () => {
     try {
-      // Try backend API first, fall back to Supabase
-      const token = (session as any)?.access_token;
-      
-      if (token) {
-        const response = await fetch(`${API_URL}/api/notes/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const { data } = await response.json();
-          setTitle(data.title);
-          setContent(data.content);
-          return;
-        }
+      const token = session?.token;
+      if (!token) {
+        throw new Error('Authentication token is missing');
       }
 
-      // Fallback to Supabase
-      const { data, error } = await supabase
-        .from('notes')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const response = await fetch(`${API_URL}/api/notes/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      if (error) throw error;
-      if (data) {
-        setTitle(data.title);
-        setContent(data.content);
+      if (!response.ok) {
+        const errorBody = await response.json();
+        throw new Error(errorBody?.error?.message || 'Failed to load note');
       }
+
+      const { data } = await response.json();
+      setTitle(data.title);
+      setContent(data.content);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to load note';
       addToast(errorMsg, 'error');
@@ -81,52 +69,33 @@ export function EditorPage() {
     setSaving(true);
 
     try {
-      const token = (session as any)?.access_token;
+      const token = session?.token;
 
-      // Try backend API first
-      if (token && user?.id) {
-        const method = id ? 'PUT' : 'POST';
-        const url = id ? `${API_URL}/api/notes/${id}` : `${API_URL}/api/notes`;
-
-        const response = await fetch(url, {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ title, content }),
-        });
-
-        if (response.ok) {
-          addToast(
-            id ? 'Note updated successfully' : 'Note created successfully',
-            'success'
-          );
-          navigate('/dashboard');
-          return;
-        }
+      if (!token) {
+        throw new Error('Authentication token is missing');
       }
 
-      // Fallback to Supabase
-      if (id) {
-        const { error } = await supabase
-          .from('notes')
-          .update({ title, content })
-          .eq('id', id);
+      const method = id ? 'PUT' : 'POST';
+      const url = id ? `${API_URL}/api/notes/${id}` : `${API_URL}/api/notes`;
 
-        if (error) throw error;
-        addToast('Note updated successfully', 'success');
-      } else {
-        const { error } = await supabase.from('notes').insert({
-          title,
-          content,
-          user_id: user?.id,
-        });
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title, content }),
+      });
 
-        if (error) throw error;
-        addToast('Note created successfully', 'success');
+      if (!response.ok) {
+        const errorBody = await response.json();
+        throw new Error(errorBody?.error?.message || 'Failed to save note');
       }
 
+      addToast(
+        id ? 'Note updated successfully' : 'Note created successfully',
+        'success'
+      );
       navigate('/dashboard');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to save note';

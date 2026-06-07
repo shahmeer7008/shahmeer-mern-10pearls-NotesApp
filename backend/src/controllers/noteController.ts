@@ -4,6 +4,7 @@ import NoteService from '../services/NoteService.js';
 import NoteModel from '../models/Note.js';
 import { asyncHandler, AppError } from '../middleware/errorHandler.js';
 import logger from '../config/logger.js';
+import { broadcastNoteChange } from '../utils/realtime.js';
 
 export const noteController = {
   // POST /api/notes - Create a new note
@@ -22,6 +23,8 @@ export const noteController = {
     }
 
     const note = await NoteService.createNote(userId, title, content, title);
+
+    broadcastNoteChange(userId, 'note:created', note);
 
     res.status(201).json({
       success: true,
@@ -101,6 +104,8 @@ export const noteController = {
 
     const note = await NoteService.updateNote(userId, id, title, content);
 
+    broadcastNoteChange(userId, 'note:updated', note);
+
     res.status(200).json({
       success: true,
       data: note,
@@ -118,9 +123,33 @@ export const noteController = {
 
     await NoteService.deleteNote(userId, id);
 
+    broadcastNoteChange(userId, 'note:deleted', { id });
+
     res.status(200).json({
       success: true,
       message: 'Note deleted successfully',
+    });
+  }),
+
+  // POST /api/notes/import - Import notes for user
+  importNotes: asyncHandler(async (req: Request, res: Response) => {
+    const { notes } = req.body;
+    const userId = req.userId;
+
+    if (!userId) {
+      throw new AppError('User ID is required', 401, 'UNAUTHORIZED');
+    }
+
+    if (!Array.isArray(notes)) {
+      throw new AppError('Notes must be an array', 400, 'VALIDATION_ERROR');
+    }
+
+    const createdNotes = await NoteService.importNotes(userId, notes);
+    broadcastNoteChange(userId, 'note:imported', createdNotes);
+
+    res.status(201).json({
+      success: true,
+      data: createdNotes,
     });
   }),
 

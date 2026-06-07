@@ -4,12 +4,15 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
 import logger from './config/logger.js';
 import requestLogger from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import noteRoutes from './routes/noteRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
+import { registerRealtimeServer } from './utils/realtime.js';
 
 dotenv.config();
 
@@ -36,7 +39,8 @@ app.use(requestLogger);
 // Health check route
 app.use('/', healthRoutes);
 
-// API Routes
+// Auth and API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/users', userRoutes);
 
@@ -55,8 +59,10 @@ app.use((_req, res) => {
 // Global Error Handler (must be last)
 app.use(errorHandler);
 
-// Start Server
-app.listen(PORT, () => {
+const server = createServer(app);
+registerRealtimeServer(server);
+
+server.listen(PORT, () => {
   logger.info(`
     ==========================================
     🚀 Notes App Server Started

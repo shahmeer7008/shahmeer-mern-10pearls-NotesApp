@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { ArrowLeft, LogOut, Mail } from 'lucide-react';
 import type { User } from '../types';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 export function ProfilePage() {
-  const { user, signOut } = useAuth();
+  const { user, session, signOut } = useAuth();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<User | null>(null);
@@ -24,32 +25,24 @@ export function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user?.id)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        setProfile(data);
-      } else if (user?.id) {
-        // Create user record if it doesn't exist
-        const { error: insertError } = await supabase.from('users').insert({
-          id: user.id,
-          email: user.email,
-        });
-
-        if (insertError && insertError.code !== '23505') throw insertError;
-
-        setProfile({
-          id: user.id,
-          email: user.email || '',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
+      const token = session?.token;
+      if (!token) {
+        throw new Error('Authentication token is missing');
       }
+
+      const response = await fetch(`${API_URL}/api/users/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json();
+        throw new Error(errorBody?.error?.message || 'Failed to load profile');
+      }
+
+      const { data } = await response.json();
+      setProfile(data);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to load profile';
       addToast(errorMsg, 'error');

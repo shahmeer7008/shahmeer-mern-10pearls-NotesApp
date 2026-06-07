@@ -1,7 +1,10 @@
 // Authentication Middleware
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 import { AppError } from './errorHandler.js';
 import logger from '../config/logger.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 
 declare global {
   namespace Express {
@@ -28,19 +31,14 @@ export const authMiddleware = async (
     }
 
     const token = authHeader.substring(7);
-
-    // For now, extract user ID from token (in production, validate JWT)
-    // This is a simplified implementation
-    const userId = extractUserIdFromToken(token);
+    const userId = verifyToken(token);
 
     if (!userId) {
-      throw new AppError('Invalid token', 401, 'INVALID_TOKEN');
+      throw new AppError('Invalid or expired token', 401, 'INVALID_TOKEN');
     }
 
     req.userId = userId;
-    req.user = {
-      id: userId,
-    };
+    req.user = { id: userId };
 
     logger.info({
       type: 'AUTH',
@@ -58,17 +56,10 @@ export const authMiddleware = async (
   }
 };
 
-function extractUserIdFromToken(token: string): string | null {
+export function verifyToken(token: string): string | null {
   try {
-    // Decode JWT token (simplified - use jsonwebtoken in production)
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-
-    const decoded = JSON.parse(
-      Buffer.from(parts[1], 'base64').toString('utf-8')
-    );
-
-    return decoded.sub || decoded.user_id || decoded.id || null;
+    const payload = jwt.verify(token, JWT_SECRET) as { sub?: string };
+    return payload.sub || null;
   } catch (err) {
     return null;
   }
@@ -84,7 +75,7 @@ export const optionalAuthMiddleware = async (
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      const userId = extractUserIdFromToken(token);
+      const userId = verifyToken(token);
 
       if (userId) {
         req.userId = userId;
@@ -93,8 +84,7 @@ export const optionalAuthMiddleware = async (
     }
 
     next();
-  } catch (err) {
-    // Optional auth, so continue even if it fails
+  } catch (_err) {
     next();
   }
 };
